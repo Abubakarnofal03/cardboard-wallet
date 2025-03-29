@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { ExpenseEntry, Person } from "@/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatCurrency } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/services/api";
 
@@ -60,8 +60,8 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
           <TableRow>
             <TableHead>Date</TableHead>
             {showPerson && <TableHead>Person</TableHead>}
-            <TableHead>Type</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
+            <TableHead className="text-right">Credit</TableHead>
+            <TableHead className="text-right">Debit</TableHead>
             <TableHead>Description</TableHead>
           </TableRow>
         </TableHeader>
@@ -74,21 +74,11 @@ const TransactionTable: React.FC<TransactionTableProps> = ({
                   {persons[transaction.personId]?.name || `Person #${transaction.personId}`}
                 </TableCell>
               )}
-              <TableCell>
-                <span
-                  className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                    transaction.type === "Credit"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {transaction.type}
-                </span>
+              <TableCell className="text-right font-medium text-green-600">
+                {transaction.type === "Credit" ? formatCurrency(transaction.amount) : "-"}
               </TableCell>
-              <TableCell className={`text-right font-medium ${
-                transaction.type === "Credit" ? "text-green-600" : "text-red-600"
-              }`}>
-                ₹{transaction.amount.toFixed(2)}
+              <TableCell className="text-right font-medium text-red-600">
+                {transaction.type === "Debit" ? formatCurrency(transaction.amount) : "-"}
               </TableCell>
               <TableCell className="max-w-xs truncate">
                 {transaction.description || "-"}
