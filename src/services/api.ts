@@ -79,33 +79,56 @@ const initializeSupabase = async () => {
 
     console.log("Initializing Supabase tables...");
     
-    // Check if tables exist, create them if they don't
-    const { error: personsError } = await supabase
-      .from('persons')
-      .select('count')
-      .limit(1);
-
-    if (personsError) {
-      console.log("Creating persons table...");
-      // Table might not exist, create it
-      await supabase.rpc('create_persons_table');
+    // Create tables if they don't exist using SQL
+    const createPersonsTableSQL = `
+      CREATE TABLE IF NOT EXISTS persons (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL
+      )
+    `;
+    
+    const createExpenseEntriesTableSQL = `
+      CREATE TABLE IF NOT EXISTS expense_entries (
+        id INTEGER PRIMARY KEY,
+        personId INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        amount NUMERIC NOT NULL,
+        type TEXT NOT NULL,
+        description TEXT
+      )
+    `;
+    
+    // Execute the SQL to create tables
+    const { error: createPersonsError } = await supabase.rpc('exec', { 
+      query: createPersonsTableSQL 
+    });
+    
+    if (createPersonsError) {
+      console.error('Error creating persons table:', createPersonsError);
+      toast.error("Failed to create persons table. Using local storage.");
+      return false;
     }
-
-    const { error: expensesError } = await supabase
-      .from('expense_entries')
-      .select('count')
-      .limit(1);
-
-    if (expensesError) {
-      console.log("Creating expense_entries table...");
-      // Table might not exist, create it
-      await supabase.rpc('create_expense_entries_table');
+    
+    const { error: createExpenseEntriesError } = await supabase.rpc('exec', { 
+      query: createExpenseEntriesTableSQL 
+    });
+    
+    if (createExpenseEntriesError) {
+      console.error('Error creating expense_entries table:', createExpenseEntriesError);
+      toast.error("Failed to create expense entries table. Using local storage.");
+      return false;
     }
 
     // Check if we have any persons data
-    const { data: persons } = await supabase
+    const { data: persons, error: personsCheckError } = await supabase
       .from('persons')
-      .select('*');
+      .select('count');
+    
+    if (personsCheckError) {
+      console.error('Error checking persons table:', personsCheckError);
+      toast.error("Failed to check persons table. Using local storage.");
+      return false;
+    }
 
     // If no persons exist, seed with default data
     if (!persons || persons.length === 0) {
@@ -119,18 +142,28 @@ const initializeSupabase = async () => {
     }
 
     // Check if we have any expense entries
-    const { data: entries } = await supabase
+    const { data: entries, error: entriesCheckError } = await supabase
       .from('expense_entries')
-      .select('*');
+      .select('count');
+    
+    if (entriesCheckError) {
+      console.error('Error checking expense_entries table:', entriesCheckError);
+      toast.error("Failed to check expense entries table. Using local storage.");
+      return false;
+    }
 
     // If no entries exist, seed with default data
     if (!entries || entries.length === 0) {
       console.log("Seeding expense_entries table with default data...");
       const defaultEntries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
       for (const entry of defaultEntries) {
-        await supabase
+        const { error: insertError } = await supabase
           .from('expense_entries')
           .insert(entry);
+          
+        if (insertError) {
+          console.error('Error inserting default entry:', insertError);
+        }
       }
     }
 
