@@ -1,4 +1,3 @@
-
 import { ExpenseEntry, FactorySummary, Person, PersonSummary } from "@/types";
 import { supabase, isSupabaseConfigured } from './supabase';
 import { toast } from "sonner";
@@ -79,44 +78,43 @@ const initializeSupabase = async () => {
 
     console.log("Initializing Supabase tables...");
     
-    // Create tables if they don't exist using SQL
-    const createPersonsTableSQL = `
-      CREATE TABLE IF NOT EXISTS persons (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL
-      )
-    `;
-    
-    const createExpenseEntriesTableSQL = `
-      CREATE TABLE IF NOT EXISTS expense_entries (
-        id INTEGER PRIMARY KEY,
-        personId INTEGER NOT NULL,
-        date TEXT NOT NULL,
-        amount NUMERIC NOT NULL,
-        type TEXT NOT NULL,
-        description TEXT
-      )
-    `;
-    
-    // Execute the SQL to create tables
-    const { error: createPersonsError } = await supabase.rpc('exec', { 
-      query: createPersonsTableSQL 
-    });
-    
-    if (createPersonsError) {
-      console.error('Error creating persons table:', createPersonsError);
-      toast.error("Failed to create persons table. Using local storage.");
-      return false;
+    // First, check if the tables already exist by querying them
+    const { error: checkPersonsError } = await supabase.from('persons').select('count');
+    if (checkPersonsError && checkPersonsError.code === '42P01') {
+      console.log("Creating persons table...");
+      // Table doesn't exist, create it
+      const { error: createPersonsError } = await supabase.schema.createTable('persons', {
+        id: 'integer primary key',
+        name: 'text not null'
+      });
+      
+      if (createPersonsError) {
+        console.error('Error creating persons table:', createPersonsError);
+        toast.error("Failed to create persons table. Using local storage.");
+        return false;
+      }
+      console.log("Persons table created successfully");
     }
     
-    const { error: createExpenseEntriesError } = await supabase.rpc('exec', { 
-      query: createExpenseEntriesTableSQL 
-    });
-    
-    if (createExpenseEntriesError) {
-      console.error('Error creating expense_entries table:', createExpenseEntriesError);
-      toast.error("Failed to create expense entries table. Using local storage.");
-      return false;
+    const { error: checkExpensesError } = await supabase.from('expense_entries').select('count');
+    if (checkExpensesError && checkExpensesError.code === '42P01') {
+      console.log("Creating expense_entries table...");
+      // Table doesn't exist, create it
+      const { error: createExpensesError } = await supabase.schema.createTable('expense_entries', {
+        id: 'integer primary key',
+        personId: 'integer not null',
+        date: 'text not null',
+        amount: 'numeric not null',
+        type: 'text not null',
+        description: 'text'
+      });
+      
+      if (createExpensesError) {
+        console.error('Error creating expense_entries table:', createExpensesError);
+        toast.error("Failed to create expense entries table. Using local storage.");
+        return false;
+      }
+      console.log("Expense entries table created successfully");
     }
 
     // Check if we have any persons data
