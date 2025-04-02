@@ -32,7 +32,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <Link to="/" className="flex items-center">
             <Package className="h-8 w-8 text-cardboard" />
             <span className="ml-2 text-xl font-bold text-white">
-              Cardboard Factory Finance
+              Khata Tracker
             </span>
           </Link>
         </div>
@@ -71,7 +71,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       <footer className="mt-auto bg-gray-100 py-4">
         <div className="container mx-auto px-4 text-center text-gray-600">
-          <p>© {new Date().getFullYear()} Cardboard Factory Finance</p>
+          <p>© {new Date().getFullYear()} Khata Tracker</p>
         </div>
       </footer>
     </div>
