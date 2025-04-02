@@ -11,5 +11,5 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Check if Supabase is configured
 export const isSupabaseConfigured = () => {
-  return supabaseUrl !== '' && supabaseKey !== '';
+  return supabaseUrl.length > 0 && supabaseKey.length > 0;
 };

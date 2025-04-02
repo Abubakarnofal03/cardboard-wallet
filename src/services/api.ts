@@ -1,6 +1,7 @@
 
 import { ExpenseEntry, FactorySummary, Person, PersonSummary } from "@/types";
 import { supabase, isSupabaseConfigured } from './supabase';
+import { toast } from "sonner";
 
 // Initialize localStorage with default data if empty
 const initializeLocalStorage = () => {
@@ -70,6 +71,14 @@ const getNewId = (items: { id: number }[]): number => {
 // Supabase helper functions
 const initializeSupabase = async () => {
   try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.log("Supabase is not configured. Using localStorage instead.");
+      return false;
+    }
+
+    console.log("Initializing Supabase tables...");
+    
     // Check if tables exist, create them if they don't
     const { error: personsError } = await supabase
       .from('persons')
@@ -77,6 +86,7 @@ const initializeSupabase = async () => {
       .limit(1);
 
     if (personsError) {
+      console.log("Creating persons table...");
       // Table might not exist, create it
       await supabase.rpc('create_persons_table');
     }
@@ -87,6 +97,7 @@ const initializeSupabase = async () => {
       .limit(1);
 
     if (expensesError) {
+      console.log("Creating expense_entries table...");
       // Table might not exist, create it
       await supabase.rpc('create_expense_entries_table');
     }
@@ -98,6 +109,7 @@ const initializeSupabase = async () => {
 
     // If no persons exist, seed with default data
     if (!persons || persons.length === 0) {
+      console.log("Seeding persons table with default data...");
       const defaultPersons = JSON.parse(localStorage.getItem('persons') || '[]');
       for (const person of defaultPersons) {
         await supabase
@@ -113,6 +125,7 @@ const initializeSupabase = async () => {
 
     // If no entries exist, seed with default data
     if (!entries || entries.length === 0) {
+      console.log("Seeding expense_entries table with default data...");
       const defaultEntries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
       for (const entry of defaultEntries) {
         await supabase
@@ -121,9 +134,12 @@ const initializeSupabase = async () => {
       }
     }
 
+    console.log("Supabase initialization complete!");
+    toast.success("Connected to Supabase database");
     return true;
   } catch (error) {
     console.error('Failed to initialize Supabase:', error);
+    toast.error("Failed to connect to Supabase database. Using local storage.");
     return false;
   }
 };
@@ -140,14 +156,18 @@ export const api = {
           .select('*');
         
         if (error) throw error;
+        console.log("Fetched persons from Supabase:", data?.length || 0);
+        toast.success("Data retrieved from cloud database");
         return data || [];
       } catch (error) {
         console.error('Error fetching persons from Supabase:', error);
+        toast.error("Failed to fetch from cloud. Using local data.");
         // Fall back to localStorage
         return JSON.parse(localStorage.getItem('persons') || '[]');
       }
     } else {
       // Use localStorage as fallback
+      console.log("Using localStorage for persons.");
       return new Promise((resolve) => {
         setTimeout(() => {
           const persons = JSON.parse(localStorage.getItem('persons') || '[]');
@@ -218,6 +238,7 @@ export const api = {
           .select('*');
         
         if (error) throw error;
+        console.log("Fetched expenses from Supabase:", data?.length || 0);
         return data || [];
       } catch (error) {
         console.error('Error fetching expenses from Supabase:', error);
@@ -226,6 +247,7 @@ export const api = {
       }
     } else {
       // Use localStorage as fallback
+      console.log("Using localStorage for expenses.");
       return new Promise((resolve) => {
         setTimeout(() => {
           const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
@@ -285,9 +307,12 @@ export const api = {
           .insert(newEntry);
         
         if (error) throw error;
+        console.log("Added expense to Supabase:", newEntry);
+        toast.success("Transaction saved to cloud database");
         return newEntry;
       } catch (error) {
         console.error('Error adding expense to Supabase:', error);
+        toast.error("Failed to save to cloud. Saved locally instead.");
         // Fall back to localStorage
         return new Promise((resolve) => {
           setTimeout(() => {
@@ -304,6 +329,7 @@ export const api = {
       }
     } else {
       // Use localStorage as fallback
+      console.log("Using localStorage for adding expense.");
       return new Promise((resolve) => {
         setTimeout(() => {
           const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
