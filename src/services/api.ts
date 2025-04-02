@@ -1,3 +1,4 @@
+
 import { ExpenseEntry, FactorySummary, Person, PersonSummary } from "@/types";
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -68,11 +69,6 @@ const getNewId = (items: { id: number }[]): number => {
 
 // Supabase helper functions
 const initializeSupabase = async () => {
-  if (!supabase) {
-    console.warn('Supabase client not initialized. Using localStorage fallback.');
-    return false;
-  }
-
   try {
     // Check if tables exist, create them if they don't
     const { error: personsError } = await supabase
@@ -136,7 +132,7 @@ const initializeSupabase = async () => {
 export const api = {
   // Person endpoints
   getAllPersons: async (): Promise<Person[]> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         const { data, error } = await supabase
@@ -162,7 +158,7 @@ export const api = {
   },
 
   addPerson: async (name: string): Promise<Person> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         const persons = await api.getAllPersons();
@@ -214,7 +210,7 @@ export const api = {
 
   // Expense entry endpoints
   getAllExpenses: async (): Promise<ExpenseEntry[]> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         const { data, error } = await supabase
@@ -240,7 +236,7 @@ export const api = {
   },
 
   getExpensesByPerson: async (personId: number): Promise<ExpenseEntry[]> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         const { data, error } = await supabase
@@ -273,7 +269,7 @@ export const api = {
   },
 
   addExpenseEntry: async (entry: Omit<ExpenseEntry, "id">): Promise<ExpenseEntry> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         const entries = await api.getAllExpenses();
@@ -325,7 +321,7 @@ export const api = {
 
   // Summary endpoints
   getPersonSummary: async (personId: number): Promise<PersonSummary> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         // Get person details
@@ -435,7 +431,7 @@ export const api = {
   },
 
   getFactorySummary: async (): Promise<FactorySummary> => {
-    if (isSupabaseConfigured() && supabase) {
+    if (isSupabaseConfigured()) {
       try {
         await initializeSupabase();
         const { data: entriesData, error: entriesError } = await supabase
