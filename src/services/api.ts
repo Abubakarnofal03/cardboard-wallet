@@ -1,5 +1,6 @@
 
 import { ExpenseEntry, FactorySummary, Person, PersonSummary } from "@/types";
+import { supabase, isSupabaseConfigured } from './supabase';
 
 // Initialize localStorage with default data if empty
 const initializeLocalStorage = () => {
@@ -66,78 +67,282 @@ const getNewId = (items: { id: number }[]): number => {
   return items.length ? Math.max(...items.map((item) => item.id)) + 1 : 1;
 };
 
+// Supabase helper functions
+const initializeSupabase = async () => {
+  try {
+    // Check if tables exist, create them if they don't
+    const { error: personsError } = await supabase
+      .from('persons')
+      .select('count')
+      .limit(1);
+
+    if (personsError) {
+      // Table might not exist, create it
+      await supabase.rpc('create_persons_table');
+    }
+
+    const { error: expensesError } = await supabase
+      .from('expense_entries')
+      .select('count')
+      .limit(1);
+
+    if (expensesError) {
+      // Table might not exist, create it
+      await supabase.rpc('create_expense_entries_table');
+    }
+
+    // Check if we have any persons data
+    const { data: persons } = await supabase
+      .from('persons')
+      .select('*');
+
+    // If no persons exist, seed with default data
+    if (!persons || persons.length === 0) {
+      const defaultPersons = JSON.parse(localStorage.getItem('persons') || '[]');
+      for (const person of defaultPersons) {
+        await supabase
+          .from('persons')
+          .insert(person);
+      }
+    }
+
+    // Check if we have any expense entries
+    const { data: entries } = await supabase
+      .from('expense_entries')
+      .select('*');
+
+    // If no entries exist, seed with default data
+    if (!entries || entries.length === 0) {
+      const defaultEntries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+      for (const entry of defaultEntries) {
+        await supabase
+          .from('expense_entries')
+          .insert(entry);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to initialize Supabase:', error);
+    return false;
+  }
+};
+
+// API methods that work with either Supabase or localStorage
 export const api = {
   // Person endpoints
   getAllPersons: async (): Promise<Person[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const persons = JSON.parse(localStorage.getItem('persons') || '[]');
-        resolve(persons);
-      }, 300);
-    });
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        const { data, error } = await supabase
+          .from('persons')
+          .select('*');
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Error fetching persons from Supabase:', error);
+        // Fall back to localStorage
+        return JSON.parse(localStorage.getItem('persons') || '[]');
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const persons = JSON.parse(localStorage.getItem('persons') || '[]');
+          resolve(persons);
+        }, 300);
+      });
+    }
   },
 
   addPerson: async (name: string): Promise<Person> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const persons = JSON.parse(localStorage.getItem('persons') || '[]');
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        const persons = await api.getAllPersons();
+        const newId = getNewId(persons);
+        
         const newPerson: Person = {
-          id: getNewId(persons),
+          id: newId,
           name,
         };
-        persons.push(newPerson);
-        localStorage.setItem('persons', JSON.stringify(persons));
-        resolve(newPerson);
-      }, 300);
-    });
+        
+        const { error } = await supabase
+          .from('persons')
+          .insert(newPerson);
+        
+        if (error) throw error;
+        return newPerson;
+      } catch (error) {
+        console.error('Error adding person to Supabase:', error);
+        // Fall back to localStorage
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const persons = JSON.parse(localStorage.getItem('persons') || '[]');
+            const newPerson: Person = {
+              id: getNewId(persons),
+              name,
+            };
+            persons.push(newPerson);
+            localStorage.setItem('persons', JSON.stringify(persons));
+            resolve(newPerson);
+          }, 300);
+        });
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const persons = JSON.parse(localStorage.getItem('persons') || '[]');
+          const newPerson: Person = {
+            id: getNewId(persons),
+            name,
+          };
+          persons.push(newPerson);
+          localStorage.setItem('persons', JSON.stringify(persons));
+          resolve(newPerson);
+        }, 300);
+      });
+    }
   },
 
   // Expense entry endpoints
   getAllExpenses: async (): Promise<ExpenseEntry[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
-        resolve(entries);
-      }, 300);
-    });
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        const { data, error } = await supabase
+          .from('expense_entries')
+          .select('*');
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Error fetching expenses from Supabase:', error);
+        // Fall back to localStorage
+        return JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+          resolve(entries);
+        }, 300);
+      });
+    }
   },
 
   getExpensesByPerson: async (personId: number): Promise<ExpenseEntry[]> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        const { data, error } = await supabase
+          .from('expense_entries')
+          .select('*')
+          .eq('personId', personId);
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        console.error('Error fetching expenses by person from Supabase:', error);
+        // Fall back to localStorage
         const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
-        const filteredEntries = entries.filter(
+        return entries.filter(
           (entry: ExpenseEntry) => entry.personId === personId
         );
-        resolve(filteredEntries);
-      }, 300);
-    });
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+          const filteredEntries = entries.filter(
+            (entry: ExpenseEntry) => entry.personId === personId
+          );
+          resolve(filteredEntries);
+        }, 300);
+      });
+    }
   },
 
   addExpenseEntry: async (entry: Omit<ExpenseEntry, "id">): Promise<ExpenseEntry> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        const entries = await api.getAllExpenses();
+        const newId = getNewId(entries);
+        
         const newEntry: ExpenseEntry = {
           ...entry,
-          id: getNewId(entries),
+          id: newId,
         };
-        entries.push(newEntry);
-        localStorage.setItem('expenseEntries', JSON.stringify(entries));
-        resolve(newEntry);
-      }, 300);
-    });
+        
+        const { error } = await supabase
+          .from('expense_entries')
+          .insert(newEntry);
+        
+        if (error) throw error;
+        return newEntry;
+      } catch (error) {
+        console.error('Error adding expense to Supabase:', error);
+        // Fall back to localStorage
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+            const newEntry: ExpenseEntry = {
+              ...entry,
+              id: getNewId(entries),
+            };
+            entries.push(newEntry);
+            localStorage.setItem('expenseEntries', JSON.stringify(entries));
+            resolve(newEntry);
+          }, 300);
+        });
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+          const newEntry: ExpenseEntry = {
+            ...entry,
+            id: getNewId(entries),
+          };
+          entries.push(newEntry);
+          localStorage.setItem('expenseEntries', JSON.stringify(entries));
+          resolve(newEntry);
+        }, 300);
+      });
+    }
   },
 
   // Summary endpoints
   getPersonSummary: async (personId: number): Promise<PersonSummary> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const persons = JSON.parse(localStorage.getItem('persons') || '[]');
-        const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        // Get person details
+        const { data: personData, error: personError } = await supabase
+          .from('persons')
+          .select('*')
+          .eq('id', personId)
+          .single();
         
-        const person = persons.find((p: Person) => p.id === personId);
-        const personEntries = entries.filter((entry: ExpenseEntry) => entry.personId === personId);
+        if (personError) throw personError;
+        
+        // Get person's expenses
+        const { data: entriesData, error: entriesError } = await supabase
+          .from('expense_entries')
+          .select('*')
+          .eq('personId', personId);
+        
+        if (entriesError) throw entriesError;
+        
+        const person = personData;
+        const personEntries = entriesData || [];
         
         const totalCredit = personEntries
           .filter((entry: ExpenseEntry) => entry.type === "Credit")
@@ -151,21 +356,91 @@ export const api = {
           throw new Error("Person not found");
         }
         
-        resolve({
+        return {
           id: person.id,
           name: person.name,
           totalCredit,
           totalDebit,
           balance: totalCredit - totalDebit,
+        };
+      } catch (error) {
+        console.error('Error calculating person summary from Supabase:', error);
+        // Fall back to localStorage
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const persons = JSON.parse(localStorage.getItem('persons') || '[]');
+            const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+            
+            const person = persons.find((p: Person) => p.id === personId);
+            const personEntries = entries.filter((entry: ExpenseEntry) => entry.personId === personId);
+            
+            const totalCredit = personEntries
+              .filter((entry: ExpenseEntry) => entry.type === "Credit")
+              .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+            
+            const totalDebit = personEntries
+              .filter((entry: ExpenseEntry) => entry.type === "Debit")
+              .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+            
+            if (!person) {
+              throw new Error("Person not found");
+            }
+            
+            resolve({
+              id: person.id,
+              name: person.name,
+              totalCredit,
+              totalDebit,
+              balance: totalCredit - totalDebit,
+            });
+          }, 300);
         });
-      }, 300);
-    });
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const persons = JSON.parse(localStorage.getItem('persons') || '[]');
+          const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+          
+          const person = persons.find((p: Person) => p.id === personId);
+          const personEntries = entries.filter((entry: ExpenseEntry) => entry.personId === personId);
+          
+          const totalCredit = personEntries
+            .filter((entry: ExpenseEntry) => entry.type === "Credit")
+            .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+          
+          const totalDebit = personEntries
+            .filter((entry: ExpenseEntry) => entry.type === "Debit")
+            .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+          
+          if (!person) {
+            throw new Error("Person not found");
+          }
+          
+          resolve({
+            id: person.id,
+            name: person.name,
+            totalCredit,
+            totalDebit,
+            balance: totalCredit - totalDebit,
+          });
+        }, 300);
+      });
+    }
   },
 
   getFactorySummary: async (): Promise<FactorySummary> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+    if (isSupabaseConfigured()) {
+      try {
+        await initializeSupabase();
+        const { data: entriesData, error: entriesError } = await supabase
+          .from('expense_entries')
+          .select('*');
+        
+        if (entriesError) throw entriesError;
+        
+        const entries = entriesData || [];
         
         const totalCredit = entries
           .filter((entry: ExpenseEntry) => entry.type === "Credit")
@@ -175,12 +450,55 @@ export const api = {
           .filter((entry: ExpenseEntry) => entry.type === "Debit")
           .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
         
-        resolve({
+        return {
           totalCredit,
           totalDebit,
           balance: totalCredit - totalDebit,
+        };
+      } catch (error) {
+        console.error('Error calculating factory summary from Supabase:', error);
+        // Fall back to localStorage
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+            
+            const totalCredit = entries
+              .filter((entry: ExpenseEntry) => entry.type === "Credit")
+              .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+            
+            const totalDebit = entries
+              .filter((entry: ExpenseEntry) => entry.type === "Debit")
+              .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+            
+            resolve({
+              totalCredit,
+              totalDebit,
+              balance: totalCredit - totalDebit,
+            });
+          }, 300);
         });
-      }, 300);
-    });
+      }
+    } else {
+      // Use localStorage as fallback
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const entries = JSON.parse(localStorage.getItem('expenseEntries') || '[]');
+          
+          const totalCredit = entries
+            .filter((entry: ExpenseEntry) => entry.type === "Credit")
+            .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+          
+          const totalDebit = entries
+            .filter((entry: ExpenseEntry) => entry.type === "Debit")
+            .reduce((sum: number, entry: ExpenseEntry) => sum + entry.amount, 0);
+          
+          resolve({
+            totalCredit,
+            totalDebit,
+            balance: totalCredit - totalDebit,
+          });
+        }, 300);
+      });
+    }
   },
 };
